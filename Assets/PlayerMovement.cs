@@ -18,6 +18,8 @@ public class PlayerMovement : MonoBehaviour
 
     float terminalSpeed = 3f;
 
+    float farHitDistance = 1f;
+
     void Start()
     {
         animator = GetComponent<Animator>();
@@ -27,20 +29,25 @@ public class PlayerMovement : MonoBehaviour
 
     void FixedUpdate()
     {
-        LayerMask mask = LayerMask.GetMask("Ground");
-        RaycastHit2D hitRight = Physics2D.Raycast(transform.position, Vector2.right, 1f, mask);
-        RaycastHit2D hitLeft = Physics2D.Raycast(transform.position, -Vector2.right, 1f, mask);
-        RaycastHit2D hitDown = Physics2D.Raycast(transform.position, -Vector2.up, 1f, mask);
+        if (!jumping)
+        {
+            LayerMask mask = LayerMask.GetMask("Ground");
+            RaycastHit2D farRightHit = Physics2D.Raycast(transform.position, Vector2.right, farHitDistance, mask);
+            RaycastHit2D farLeftHit = Physics2D.Raycast(transform.position, -Vector2.right, farHitDistance, mask);
+            RaycastHit2D hitDown = Physics2D.Raycast(transform.position, -Vector2.up, Mathf.Infinity, mask);
 
-        if (hitRight.collider != null)
-        {
-            transform.up = hitRight.normal;
-        } else if (hitDown.collider != null)
-        {
-            transform.up = hitDown.normal;
-        } else if (hitLeft != null)
-        {
-            transform.up = hitLeft.normal;
+            float distanceDown = hitDown.distance;
+
+            if (farRightHit.collider != null)
+            {
+                transform.up = GetWeightedNormal(farRightHit, hitDown);
+            } else if (farLeftHit.collider != null)
+            {
+                transform.up = GetWeightedNormal(farLeftHit, hitDown);
+            } else if (hitDown.collider != null)
+            {
+                transform.up = hitDown.normal;
+            }
         }
 
         float x = Input.GetAxis("Horizontal");
@@ -69,6 +76,17 @@ public class PlayerMovement : MonoBehaviour
         {
             jumping = true;
         }
+    }
+
+    Vector2 GetWeightedNormal(RaycastHit2D hit1, RaycastHit2D hit2)
+    {
+        float hit1Distance = hit1.distance;
+        float hit2Distance = hit2.distance;
+
+        float totalDistance = hit1Distance + hit2Distance;
+        float proportion1 = hit1Distance/totalDistance;
+        float proportion2 = hit2Distance/totalDistance;
+        return hit1.normal * proportion2 + hit2.normal * proportion1;
     }
 
     Vector2 GetYVelocity()
