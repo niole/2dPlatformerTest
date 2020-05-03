@@ -21,6 +21,8 @@ public class PlayerMovement : MonoBehaviour
 
     float farHitDistance = 1f;
 
+    float minDistance = 0.05f;
+
     void Start()
     {
         animator = GetComponent<Animator>();
@@ -41,14 +43,15 @@ public class PlayerMovement : MonoBehaviour
 
             if (farRightHit.collider != null)
             {
-                transform.up = GetWeightedNormal(farRightHit, hitDown);
+                transform.up += GetWeightedNormal(farRightHit, hitDown);
             } else if (farLeftHit.collider != null)
             {
-                transform.up = GetWeightedNormal(farLeftHit, hitDown);
+                transform.up += GetWeightedNormal(farLeftHit, hitDown);
             } else if (hitDown.collider != null)
             {
-                transform.up = hitDown.normal;
+                transform.up += new Vector3(hitDown.normal.x, hitDown.normal.y, transform.up.z);
             }
+            transform.up /= 2;
         }
 
         float x = Input.GetAxis("Horizontal");
@@ -79,15 +82,17 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    Vector2 GetWeightedNormal(RaycastHit2D hit1, RaycastHit2D hit2)
+    Vector3 GetWeightedNormal(RaycastHit2D hit1, RaycastHit2D hit2)
     {
-        float hit1Distance = hit1.distance;
-        float hit2Distance = hit2.distance;
+        float hit1Distance = Mathf.Max(hit1.distance, minDistance);
+        float hit2Distance = Mathf.Max(hit2.distance, minDistance);
 
         float totalDistance = hit1Distance + hit2Distance;
         float proportion1 = hit1Distance/totalDistance;
         float proportion2 = hit2Distance/totalDistance;
-        return hit1.normal * proportion2 + hit2.normal * proportion1;
+        Vector2 newNormal = hit1.normal * proportion2 + hit2.normal * proportion1;
+
+        return new Vector3(newNormal.x, newNormal.y, transform.up.z);
     }
 
     Vector2 GetYVelocity()
@@ -111,7 +116,6 @@ public class PlayerMovement : MonoBehaviour
                 jumping = false;
                 break;
             case "Coin":
-                Debug.Log("coin");
                 GameManager.Instance.AddPoints(1f);
                 break;
             case "Enemy":
