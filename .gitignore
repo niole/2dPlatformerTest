@@ -1,0 +1,155 @@
+Skip to content
+
+Search…
+All gists
+Back to GitHub
+@niole
+@teocomi teocomi/.gitignore
+Created 4 years ago • Report abuse
+43
+17
+ Code Revisions 1 Stars 43 Forks 17
+<script src="https://gist.github.com/teocomi/fbd014c26c63c7c1055d025e2339dea7.js"></script>
+
+Gitignore for Unity projects
+ .gitignore
+# =============== #
+# Unity generated #
+# =============== #
+[Tt]emp/
+[Oo]bj/
+[Bb]uild
+/[Bb]uilds/
+/[Ll]ibrary/
+sysinfo.txt
+*.stackdump
+/Assets/AssetStoreTools*
+*.apk
+*.unitypackage
+
+# ===================================== #
+# Visual Studio / MonoDevelop generated #
+# ===================================== #
+[Ee]xported[Oo]bj/
+.vs/
+/*.userprefs
+/*.csproj
+/*.pidb
+*.pidb.meta
+/*.suo
+/*.sln*
+/*.user
+/*.unityproj
+/*.booproj
+.consulo/
+/*.tmp
+/*.svd
+
+# ============ #
+# OS generated #
+# ============ #
+.DS_Store*
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+ehthumbs.db
+[Tt]humbs.db
+[Dd]esktop.ini
+Corridor/Library/ShaderCache/
+Corridor/Library/metadata/
+@nikhilsinha
+nikhilsinha commented on May 5, 2017
+Why are .sln and .csproj files in this file? Aren't those needed for Visual Studio?
+
+@Arrekin
+Arrekin commented on May 13, 2017
+Unity can generate those files so they are not necessary,
+
+@jwvanderbeck
+jwvanderbeck commented on May 26, 2017
+I'm not so sure about excluding the sln honestly. Especially today. In older versions of Unity sure, it would wipe them out and rebuild them every time anyway so no big deal. But today Unity seems to be getting better about not doing that, and the direction Visual Studio is going, especially with NuGet, I think the sln is going to become more important.
+
+@dylanh724
+dylanh724 commented on Jun 29, 2017
+Is this still valid for July 2017?
+
+@danielson317
+danielson317 commented on Aug 15, 2017
+Just tried this out. Without the project file it opens the project in a new unsaved scene when opened on a new computer. So I had to select my default scene and all seemed to work from there. Seems like this still works as of August 2017.
+
+@dimkir
+dimkir commented on Nov 13, 2017
+Removing .sln files makes me cringe..
+
+But a more practical question would be: upon which events Unity will regenerate .sln files? Also where are dependencies and project prefs kept? (eg which .cs files are "included into project" and which once are "not included"?) Trying to wrap my head around inner workings of the Unity<>VS interchange...
+
+@dimkir
+dimkir commented on Nov 13, 2017
+also why .unityproj is not necessary?
+
+Which is the "main" unity project file then?
+
+@Thaina
+Thaina commented on Nov 21, 2018 •
+@dimkir I think .unityproj is actually .unityscriptproj which is just an equivalence to .csproj
+
+The actual project settings for unity would be some files in ProjectSettings folder
+
+@Salzian
+Salzian commented on Nov 30, 2018
+Removing .sln files makes me cringe..
+
+It's perfectly ok to do. Unity generates the .sln and .csproj on it's own.
+
+Also where are dependencies and project prefs kept?
+
+Dependencies are stored in the .meta files.
+
+@ElieUbogi
+ElieUbogi commented on Jan 3, 2019
+so the gitignore is definitly ok?
+
+@GiorgiGaiashvili
+GiorgiGaiashvili commented on Jan 20, 2019
+Yeah it works properly
+
+@pascaldisse
+pascaldisse commented on Mar 14, 2019 •
+Please remove Icon? from the .gitignore!
+The way this is set up, it will ignore all files that include Icon followed by a letter. For example, I had a folder called Icons which was completely ignored in my repo.
+
+@dangpzanco
+dangpzanco commented on May 30, 2019
+why not just use the github provided one? https://github.com/github/gitignore/blob/master/Unity.gitignore
+
+@GhostCoder256
+GhostCoder256 commented on Mar 5
+why not just use the github provided one? https://github.com/github/gitignore/blob/master/Unity.gitignore
+
+Because the official one assumes that your Unity project's root is the same one as your GitHub project, however it's better practice to put the Unity project inside a sub folder, this .gitignore allows you to do that.
+
+@JimmyRooster
+JimmyRooster commented on Mar 12 •
+Because the official one assumes that your Unity project's root is the same one as your GitHub project, however it's better practice to put the Unity project inside a sub folder, this .gitignore allows you to do that.
+
+I had the same problem. You can either use */[Tt]emp/ */[Ll]ibrary/ */[Oo]bj/ and so on, but this would exclude any folders called temp. To solve this you could use the slightly messy solution of /SubFolder/[Tt]emp/ /SubFolder/[Ll]ibrary/ /SubFolder/[Oo]bj/ and so on if your unity project was in repository/SubFolder/.
+
+@niole
+
+Leave a comment
+
+Attach files by dragging & dropping, selecting or pasting them.
+© 2020 GitHub, Inc.
+Terms
+Privacy
+Security
+Status
+Help
+Contact GitHub
+Pricing
+API
+Training
+Blog
+About
+
