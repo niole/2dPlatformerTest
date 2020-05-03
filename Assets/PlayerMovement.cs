@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using static GameManager;
 
 public class PlayerMovement : MonoBehaviour
 {
@@ -12,7 +13,7 @@ public class PlayerMovement : MonoBehaviour
 
     float speed = 50f;
 
-    float jumpSpeed = 200f;
+    float jumpSpeed = 325f;
 
     bool jumping = false;
 
@@ -103,9 +104,21 @@ public class PlayerMovement : MonoBehaviour
 
     void OnCollisionEnter2D(Collision2D other)
     {
-        if (other.gameObject.tag == "Ground")
+        string otherTag = other.gameObject.tag;
+        switch (otherTag)
         {
-            jumping = false;
+            case "Ground":
+                jumping = false;
+                break;
+            case "Coin":
+                Debug.Log("coin");
+                GameManager.Instance.AddPoints(1f);
+                break;
+            case "Enemy":
+                GameManager.Instance.SubtractPoints(1f);
+                break;
+            default:
+                break;
         }
     }
 }
