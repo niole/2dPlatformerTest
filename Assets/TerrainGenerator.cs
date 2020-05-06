@@ -29,6 +29,8 @@ public class TerrainGenerator : MonoBehaviour
 
     public TileBase dirt;
 
+    public Rigidbody2D coin;
+
     int xStart = -2;
 
     int yStart = -3;
@@ -48,6 +50,7 @@ public class TerrainGenerator : MonoBehaviour
             List<int> levelChoices = new List<int>{ -1, 0, 1 };
             var choices = levelChoices.Where(l => level + l >= 0 && level + l <= maxHeight).ToList();
             int nextChoiceIndex = Convert.ToInt32(UnityEngine.Random.Range(0f, Convert.ToSingle(choices.Count() - 1)));
+            bool shouldRenderCoin = false;
 
             int choice = choices[nextChoiceIndex];
 
@@ -65,6 +68,8 @@ public class TerrainGenerator : MonoBehaviour
                 yOffset -= 1;
             } else if (choice == 0)
             {
+                shouldRenderCoin = UnityEngine.Random.Range(0f, 100f) <= 20f;
+
                 // staying level, y doesn't change
                 Vector3Int tilePos = new Vector3Int(xStart + xOffset, yStart + yOffset, 0);
                 tileMap.SetTile(tilePos, horizontalTileMid);
@@ -77,6 +82,11 @@ public class TerrainGenerator : MonoBehaviour
                 tileMap.SetTile(secondTilePos, slantedUpTileEnd);
 
                 yOffset += 1;
+            }
+
+            if (shouldRenderCoin)
+            {
+                Instantiate(coin, new Vector3(xOffset + xStart, yOffset + yStart + 3, 0), Quaternion.identity);
             }
         }
     }
