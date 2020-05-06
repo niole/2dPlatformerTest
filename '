@@ -1,0 +1,58 @@
+﻿using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.Tilemaps;
+
+public class TerrainGenerator : MonoBehaviour
+{
+
+    public Tilemap tileMap;
+
+    public TileBase horizontalTileStart;
+
+    public TileBase horizontalTileMid;
+
+    public TileBase horizontalTileEnd;
+
+    public TileBase slantedDownTileStart;
+
+    public TileBase slantedDownTileEnd;
+
+    public TileBase slantedUpTileStart;
+
+    public TileBase slantedUpTileEnd;
+
+    public TileBase dirt;
+
+    float xStart = 6f;
+
+    float yStart = -3f;
+
+    float mapWidth = 24f; // is double the screen
+
+    float mapHeight = 8f;
+
+    void Start()
+    {
+        tileMap = GetComponent<Tilemap>();
+        float randomNumber = Random.Range(0f, 1f);
+        bool horizontal = randomNumber <= 0.33f;
+        bool down = randomNumber > 0.33f && randomNumber <= 0.66f;
+        bool up = randomNumber > 0.66f;
+
+        // do 3 across
+        // do 2 - 4 up
+        // do 2 - 4 down
+        // do 4 up or 4 down if there is room to do so
+
+        int[,] tiles = new int[mapWidth, mapHeight];
+        for (int w = 0; w < tiles.GetUpperBound(0); w++)
+        {
+            for (int h = 0; h < tiles.GetUpperBound(1); h++)
+            {
+                // TODO do stuff
+            }
+
+        }
+    }
+}
