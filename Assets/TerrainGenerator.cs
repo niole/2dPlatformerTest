@@ -35,11 +35,17 @@ public class TerrainGenerator : MonoBehaviour
 
     int yStart = -3;
 
+    // TODO when user goes far enough right, we generate more and delete the oldest, vice versa
+    // if user wants to go backwards, they will get the same terrain that was originally there
+    // if a user has collected the coins already, they will not be there
+
     // 0 flat
     // 1 up one
     // 2 up two
     void Start()
     {
+        PlayerMoveEvents.current.onPlayerMoveTriggerEnter += OnPlayerMove;
+
         tileMap = GetComponent<Tilemap>();
         int level = 0;
         int yOffset = 0;
@@ -90,4 +96,11 @@ public class TerrainGenerator : MonoBehaviour
             }
         }
     }
+
+
+    private void OnPlayerMove(float xLocation)
+    {
+        Debug.Log($"Player moved {xLocation}");
+    }
+
 }

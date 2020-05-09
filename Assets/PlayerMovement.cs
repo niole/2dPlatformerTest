@@ -23,6 +23,8 @@ public class PlayerMovement : MonoBehaviour
 
     float minDistance = 0.05f;
 
+    float userX = 0f;
+
     void Start()
     {
         animator = GetComponent<Animator>();
@@ -32,6 +34,15 @@ public class PlayerMovement : MonoBehaviour
 
     void FixedUpdate()
     {
+
+        float newUserX = Mathf.Floor(transform.position.x);
+        if (newUserX != userX)
+        {
+            userX = newUserX;
+            PlayerMoveEvents.current.PlayerMoveTriggerEnter(newUserX);
+        }
+
+
         if (!jumping)
         {
             LayerMask mask = LayerMask.GetMask("Ground");
