@@ -7,7 +7,8 @@ using System.Linq;
 
 public class TerrainGenerator : MonoBehaviour
 {
-    static public int softUpperBound = 60; // can go over this bound in on of the iterations, but then that's enough
+    // static public int softUpperBound = 60; // can go over this bound in on of the iterations, but then that's enough
+    static public int softUpperBound = 10; // can go over this bound in on of the iterations, but then that's enough
 
     public int maxHeight = 4;
 
@@ -41,57 +42,25 @@ public class TerrainGenerator : MonoBehaviour
 
     int yStart = -3;
 
-    float sectionStartIndex = 0f;
-
-    float sectionEndIndex = 0f;
-
     float shouldFetchRightOffset = (1f - fetchError) * softUpperBound;
 
     float shouldFetchLeftOffset = fetchError * softUpperBound;
 
+    // [ [ [yval, tile type, coin does/nt exist 0 or 1], [], [] ], ...]
     List<List<List<int>>> state;
+
+    // key is the absolute x-y position of the tile on top of which this is rendered
+    Dictionary<string, Rigidbody2D> renderedCoins = new Dictionary<string, Rigidbody2D>();
 
     // TODO when user goes far enough right, we generate more and delete the oldest, vice versa
     // if user wants to go backwards, they will get the same terrain that was originally there
     // if a user has collected the coins already, they will not be there
-    //
-    // need to store all terrain representation, includes no/coin
-    // have multidimentional array, x offset is the index of main array, subarray is  y, has tile, tile type, has coin
-    // [ [ [yval, tile type, has coin], [], [] ], ...]
-    // [ [
     //
     // need "active section" endpoints
     //
     // need "get more right" offset
     // need "get more left" offset
     // TODO when collide with coin need to update coin state
-
-    bool ShouldGetRight(float playerX)
-    {
-        float playerOffset = playerX - xStart;
-        // always allow right fetching when possible
-        // TODO create absolute upper bound eventually
-        return playerOffset >= shouldFetchRightOffset;
-    }
-
-    bool ShouldGetLeft(float playerX)
-    {
-        float playerOffset = playerX - xStart;
-
-        // only fetch left if not at start
-        return playerOffset <= shouldFetchLeftOffset && playerX > xAbsoluteStart + shouldFetchLeftOffset;
-    }
-
-    void MaybeUpdateActiveSection(float playerX)
-    {
-        if (ShouldGetLeft(playerX))
-        {
-            // fetch left, garbage collect right
-        } else if (ShouldGetRight(playerX))
-        {
-            // fetch right, garbage collect left
-        }
-    }
 
     // 0 flat
     // 1 up one
@@ -111,6 +80,66 @@ public class TerrainGenerator : MonoBehaviour
         PlayerMoveEvents.current.onPlayerMoveTriggerEnter += OnPlayerMove;
         state = BuildState(0);
         RenderState();
+    }
+
+    bool ShouldGetRight(float playerX)
+    {
+        float playerOffset = playerX - xStart;
+        // always allow right fetching when possible
+        // TODO create absolute upper bound eventually
+        return playerOffset >= shouldFetchRightOffset;
+    }
+
+    bool ShouldGetLeft(float playerX)
+    {
+        float playerOffset = playerX - xStart;
+
+        // only fetch left if not at start
+        return playerOffset <= shouldFetchLeftOffset && playerX > xAbsoluteStart + shouldFetchLeftOffset;
+    }
+
+    void DestroyGameInRange(int start, int end)
+    {
+
+        for (int x = start; x < end; x++)
+        {
+            List<List<int>> xSliceData = state[x];
+
+            for ( int i = 0; i < xSliceData.Count(); i++)
+            {
+                List<int> ySliceData = xSliceData[i];
+                int yPos = ySliceData[0];
+                bool hasCoin = ySliceData[2] == 1;
+                if (hasCoin)
+                {
+                    // destroy coin
+                    string coinKey = GetCoinKey(x, yPos);
+                    Rigidbody2D currentlyRenderedCoin = renderedCoins[coinKey];
+                    if (currentlyRenderedCoin != null)
+                    {
+                        Destroy(currentlyRenderedCoin.gameObject);
+                        renderedCoins.Remove(coinKey);
+                    } else
+                    {
+                        Debug.Log($"May want to check coin at {coinKey}. Key still exists, coin does not");
+                    }
+                }
+
+                Vector3Int tilePos = new Vector3Int(xStart + x, yStart + yPos, 0);
+                tileMap.SetTile(tilePos, null);
+            }
+        }
+    }
+
+    void MaybeUpdateActiveSection(float playerX)
+    {
+        if (ShouldGetLeft(playerX))
+        {
+            // fetch left, garbage collect right
+        } else if (ShouldGetRight(playerX))
+        {
+            // fetch right, garbage collect left
+        }
     }
 
     // TODO assumes everything previously (in space) has been built correctly
@@ -165,6 +194,9 @@ public class TerrainGenerator : MonoBehaviour
         return nextState;
     }
 
+    /**
+     * This renders from offsets, not according to world coordinates
+     */
     void RenderState()
     {
         List<List<List<int>>> stateToRender = state;
@@ -188,12 +220,24 @@ public class TerrainGenerator : MonoBehaviour
 
                 if (hasCoin == 1)
                 {
-                    Instantiate(coin, new Vector3(xOffset + xStart, yOffset + yStart + 3, 0), Quaternion.identity);
+                    Rigidbody2D newCoin = Instantiate(
+                        coin,
+                        new Vector3(xOffset + xStart, yOffset + yStart + 3, 0),
+                        Quaternion.identity
+                    );
+                    string coinKey = GetCoinKey(xOffset, yOffset);
+                    renderedCoins.Add(coinKey, newCoin);
                 }
 
             }
         }
 
+    }
+
+    string GetCoinKey(int relativeTileX, int relativeTileY)
+    {
+        string coinKey = $"{relativeTileX + xStart}-{relativeTileY + yStart}";
+        return coinKey;
     }
 
     private void OnPlayerMove(float xLocation)
