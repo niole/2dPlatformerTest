@@ -7,8 +7,7 @@ using System.Linq;
 
 public class TerrainGenerator : MonoBehaviour
 {
-    // static public int softUpperBound = 60; // can go over this bound in on of the iterations, but then that's enough
-    static public int softUpperBound = 10; // can go over this bound in on of the iterations, but then that's enough
+    static public int softUpperBound = 20;
 
     public int maxHeight = 4;
 
@@ -38,13 +37,17 @@ public class TerrainGenerator : MonoBehaviour
 
     static int xAbsoluteStart = -2;
 
+    static int yAbsoluteStart = -3;
+
     int xStart = xAbsoluteStart;
 
-    int yStart = -3;
+    int yStart = yAbsoluteStart;
 
     float shouldFetchRightOffset = (1f - fetchError) * softUpperBound;
 
     float shouldFetchLeftOffset = fetchError * softUpperBound;
+
+    bool updatingState = false;
 
     // [ [ [yval, tile type, coin does/nt exist 0 or 1], [], [] ], ...]
     List<List<List<int>>> state;
@@ -52,21 +55,13 @@ public class TerrainGenerator : MonoBehaviour
     // key is the absolute x-y position of the tile on top of which this is rendered
     Dictionary<string, Rigidbody2D> renderedCoins = new Dictionary<string, Rigidbody2D>();
 
-    // TODO when user goes far enough right, we generate more and delete the oldest, vice versa
-    // if user wants to go backwards, they will get the same terrain that was originally there
-    // if a user has collected the coins already, they will not be there
-    //
-    // need "active section" endpoints
-    //
-    // need "get more right" offset
-    // need "get more left" offset
-    // TODO when collide with coin need to update coin state
-
     // 0 flat
     // 1 up one
     // 2 up two
     void Start()
     {
+        updatingState = true;
+
         tileBaseTable.Add(1, horizontalTileStart);
         tileBaseTable.Add(2, horizontalTileMid);
         tileBaseTable.Add(3, horizontalTileEnd);
@@ -80,6 +75,7 @@ public class TerrainGenerator : MonoBehaviour
         PlayerMoveEvents.current.onPlayerMoveTriggerEnter += OnPlayerMove;
         state = BuildState(0);
         RenderState();
+        updatingState = false;
     }
 
     bool ShouldGetRight(float playerX)
@@ -133,17 +129,44 @@ public class TerrainGenerator : MonoBehaviour
 
     void MaybeUpdateActiveSection(float playerX)
     {
-        if (ShouldGetLeft(playerX))
+        if (!updatingState)
         {
-            // fetch left, garbage collect right
-        } else if (ShouldGetRight(playerX))
-        {
-            // fetch right, garbage collect left
+            bool getLeft = ShouldGetLeft(playerX);
+            bool getRight = ShouldGetRight(playerX);
+            if (getLeft || getRight)
+            {
+                updatingState = true;
+                if (getLeft)
+                {
+                    // fetch left, garbage collect right
+                    // do not have to generate any terrain
+                    // just update startX
+                } else if (getRight)
+                {
+                    // fetch right, garbage collect left
+                    // will have to generate terrain
+                    // will have to update startY to be last right y offset + absoluteY?
+                    // no, i think yStart will always be the same, it is just the buildstate level
+                    // that will have to be correct
+                    // will have to get from last created tile state
+                    List<List<int>> lastX = state[state.Count() - 1];
+                    List<int> lastYSlice = lastX[lastX.Count() - 1];
+                    int lastYOffset = lastYSlice[0];
+                    xStart += softUpperBound; // TODO global state is evil
+                    List<List<List<int>>> nextState = BuildState(lastYOffset);
+                    state.AddRange(nextState);
+
+                    int destroyStartIndex = xStart - xAbsoluteStart;
+                    int destroyEndIndex = destroyStartIndex + Convert.ToInt32(shouldFetchRightOffset); // TODO this is too far, but will help with debugging
+                    // DestroyGameInRange(destroyStartIndex, destroyEndIndex);
+
+                    RenderState();
+                }
+                updatingState = false;
+            }
         }
     }
 
-    // TODO assumes everything previously (in space) has been built correctly
-    // there is no dependency on what was previously built
     List<List<List<int>>> BuildState(int initialLevel)
     {
         List<int> levelChoices = new List<int>{ -1, 0, 1 };
@@ -199,30 +222,29 @@ public class TerrainGenerator : MonoBehaviour
      */
     void RenderState()
     {
-        List<List<List<int>>> stateToRender = state;
-
-        for (int xOffset = 0; xOffset < softUpperBound; xOffset++)
+        int xRenderStart = Mathf.Max(xStart - xAbsoluteStart, xAbsoluteStart);
+        for (int xOffset = xRenderStart; xOffset < xRenderStart + softUpperBound; xOffset++)
         {
-            List<List<int>> renderableXSection = stateToRender[xOffset];
+            List<List<int>> renderableXSection = state[xOffset];
             for (int j = 0; j < renderableXSection.Count(); j++)
             {
                 List<int> yDetails = renderableXSection[j];
                 int yOffset = yDetails[0];
                 int tileType = yDetails[1];
-                int hasCoin = yDetails[2];
+                bool hasCoin = yDetails[2] == 1;
 
-                Vector3Int tilePos = new Vector3Int(xStart + xOffset, yStart + yOffset, 0);
+                Vector3Int tilePos = new Vector3Int(xAbsoluteStart + xOffset, yStart + yOffset, 0);
                 TileBase tile = tileBaseTable[tileType];
                 if (tile != null)
                 {
                     tileMap.SetTile(tilePos, tile);
                 }
 
-                if (hasCoin == 1)
+                if (hasCoin)
                 {
                     Rigidbody2D newCoin = Instantiate(
                         coin,
-                        new Vector3(xOffset + xStart, yOffset + yStart + 3, 0),
+                        new Vector3(xOffset + xAbsoluteStart, yOffset + yStart + 3, 0),
                         Quaternion.identity
                     );
                     string coinKey = GetCoinKey(xOffset, yOffset);
@@ -242,7 +264,7 @@ public class TerrainGenerator : MonoBehaviour
 
     private void OnPlayerMove(float xLocation)
     {
-        Debug.Log($"Player moved {xLocation}");
+        MaybeUpdateActiveSection(xLocation);
     }
 
 }
