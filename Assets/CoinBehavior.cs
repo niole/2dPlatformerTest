@@ -13,9 +13,12 @@ public class CoinBehavior : MonoBehaviour
 
     Renderer renderer;
 
+    float renderedXPosition;
+
     void Start()
     {
         renderer = GetComponent<Renderer>();
+        renderedXPosition = transform.position.x;
     }
 
     void Update()
@@ -31,6 +34,7 @@ public class CoinBehavior : MonoBehaviour
             if (totalFlickers == maxFlixers)
             {
                 Destroy(gameObject);
+                CoinEvents.current.CoinDestroyedTriggerEnter(renderedXPosition);
             }
 
         }

@@ -39,6 +39,8 @@ public class TerrainGenerator : MonoBehaviour
 
     static int yAbsoluteStart = -3;
 
+    float playerXLocation = xAbsoluteStart;
+
     int xStart = xAbsoluteStart;
 
     int yStart = yAbsoluteStart;
@@ -73,6 +75,7 @@ public class TerrainGenerator : MonoBehaviour
 
         tileMap = GetComponent<Tilemap>();
         PlayerMoveEvents.current.onPlayerMoveTriggerEnter += OnPlayerMove;
+        CoinEvents.current.onCoinDestroyedTriggerEnter += OnCoinDestroyed;
         state = BuildState(0);
         RenderState();
         updatingState = false;
@@ -121,7 +124,7 @@ public class TerrainGenerator : MonoBehaviour
                     }
                 }
 
-                Vector3Int tilePos = new Vector3Int(xStart + x, yStart + yPos, 0);
+                Vector3Int tilePos = new Vector3Int(xIndexToWorldX(x), yStart + yPos, 0);
                 tileMap.SetTile(tilePos, null);
             }
         }
@@ -131,16 +134,19 @@ public class TerrainGenerator : MonoBehaviour
     {
         if (!updatingState)
         {
-            bool getLeft = ShouldGetLeft(playerX);
-            bool getRight = ShouldGetRight(playerX);
+            bool getLeft = ShouldGetLeft(playerX) && !ShouldGetLeft(playerXLocation);
+            bool getRight = ShouldGetRight(playerX) && !ShouldGetRight(playerXLocation);
             if (getLeft || getRight)
             {
                 updatingState = true;
                 if (getLeft)
                 {
-                    // fetch left, garbage collect right
-                    // do not have to generate any terrain
-                    // just update startX
+                    // fetch left, garbage collect right, render terrain, update startX
+                    int destroyStartIndex = getStateXIndex(xStart) + Convert.ToInt32(shouldFetchLeftOffset);
+                    int destroyEndIndex = destroyStartIndex + Convert.ToInt32(shouldFetchRightOffset);
+                    DestroyGameInRange(destroyStartIndex, destroyEndIndex);
+                    xStart = Mathf.Max(xStart - softUpperBound, xAbsoluteStart);
+                    RenderState();
                 } else if (getRight)
                 {
                     // fetch right, garbage collect left
@@ -149,16 +155,17 @@ public class TerrainGenerator : MonoBehaviour
                     // no, i think yStart will always be the same, it is just the buildstate level
                     // that will have to be correct
                     // will have to get from last created tile state
+
+                    int destroyStartIndex = getStateXIndex(xStart);
+                    int destroyEndIndex = destroyStartIndex + Convert.ToInt32(shouldFetchRightOffset); // TODO this is too far, but will help with debugging
+                    DestroyGameInRange(destroyStartIndex, destroyEndIndex);
+
                     List<List<int>> lastX = state[state.Count() - 1];
                     List<int> lastYSlice = lastX[lastX.Count() - 1];
                     int lastYOffset = lastYSlice[0];
                     xStart += softUpperBound; // TODO global state is evil
                     List<List<List<int>>> nextState = BuildState(lastYOffset);
                     state.AddRange(nextState);
-
-                    int destroyStartIndex = xStart - xAbsoluteStart;
-                    int destroyEndIndex = destroyStartIndex + Convert.ToInt32(shouldFetchRightOffset); // TODO this is too far, but will help with debugging
-                    // DestroyGameInRange(destroyStartIndex, destroyEndIndex);
 
                     RenderState();
                 }
@@ -222,7 +229,7 @@ public class TerrainGenerator : MonoBehaviour
      */
     void RenderState()
     {
-        int xRenderStart = Mathf.Max(xStart - xAbsoluteStart, xAbsoluteStart);
+        int xRenderStart = Mathf.Max(getStateXIndex(xStart), xAbsoluteStart);
         for (int xOffset = xRenderStart; xOffset < xRenderStart + softUpperBound; xOffset++)
         {
             List<List<int>> renderableXSection = state[xOffset];
@@ -233,7 +240,7 @@ public class TerrainGenerator : MonoBehaviour
                 int tileType = yDetails[1];
                 bool hasCoin = yDetails[2] == 1;
 
-                Vector3Int tilePos = new Vector3Int(xAbsoluteStart + xOffset, yStart + yOffset, 0);
+                Vector3Int tilePos = new Vector3Int(xIndexToWorldX(xOffset), yStart + yOffset, 0);
                 TileBase tile = tileBaseTable[tileType];
                 if (tile != null)
                 {
@@ -244,7 +251,7 @@ public class TerrainGenerator : MonoBehaviour
                 {
                     Rigidbody2D newCoin = Instantiate(
                         coin,
-                        new Vector3(xOffset + xAbsoluteStart, yOffset + yStart + 3, 0),
+                        new Vector3(xIndexToWorldX(xOffset), yOffset + yStart + 3, 0),
                         Quaternion.identity
                     );
                     string coinKey = GetCoinKey(xOffset, yOffset);
@@ -262,9 +269,39 @@ public class TerrainGenerator : MonoBehaviour
         return coinKey;
     }
 
+    int getStateXIndex(float xLocation)
+    {
+        return Convert.ToInt32(xLocation) - xAbsoluteStart;
+    }
+
+    int xIndexToWorldX(int x)
+    {
+        return x + xAbsoluteStart;
+    }
+
     private void OnPlayerMove(float xLocation)
     {
         MaybeUpdateActiveSection(xLocation);
+        playerXLocation = xLocation;
     }
 
+    private void OnCoinDestroyed(float xLocation)
+    {
+        int x = getStateXIndex(xLocation);
+        // get the coins
+        for (int i = 0; i < state[x].Count(); i++)
+        {
+            bool hasCoin = state[x][i][2] == 1;
+            if (hasCoin)
+            {
+                int y = state[x][i][0];
+                string coinKey = GetCoinKey(x, y);
+                if (renderedCoins.ContainsKey(coinKey))
+                {
+                    renderedCoins.Remove(coinKey);
+                }
+                state[x][i][2] = 0;
+            }
+        }
+    }
 }
