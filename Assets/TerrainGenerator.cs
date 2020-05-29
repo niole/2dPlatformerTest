@@ -81,7 +81,6 @@ public class TerrainGenerator : MonoBehaviour
         BoundsInt bounds = tileMap.cellBounds;
         PlayerMoveEvents.current.onPlayerMoveTriggerEnter += OnPlayerMove;
         CoinEvents.current.onCoinDestroyedTriggerEnter += OnCoinDestroyed;
-        TriggerDetector.current.onTrigger += OnTriggerThing;
         state = BuildState(0, softUpperBound);
         RenderState();
         updatingState = false;
