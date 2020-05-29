@@ -7,7 +7,10 @@ using System.Linq;
 
 public class TerrainGenerator : MonoBehaviour
 {
-    static public int softUpperBound = 20;
+    // CURRENT TILE WIDTH IN SCREEN IS >= 22 < 24
+    static private int softUpperBound = 20;
+
+    public GameObject locationCollider;
 
     public int maxHeight = 4;
 
@@ -51,7 +54,7 @@ public class TerrainGenerator : MonoBehaviour
 
     bool updatingState = false;
 
-    // [ [ [yval, tile type, coin does/nt exist 0 or 1], [], [] ], ...]
+    // [ [ [yval, tile type, coin does/nt exist 0 or 1, is rendered?], [], [] ], ...]
     List<List<List<int>>> state;
 
     // key is the absolute x-y position of the tile on top of which this is rendered
@@ -74,9 +77,12 @@ public class TerrainGenerator : MonoBehaviour
         tileBaseTable.Add(8, dirt);
 
         tileMap = GetComponent<Tilemap>();
+
+        BoundsInt bounds = tileMap.cellBounds;
         PlayerMoveEvents.current.onPlayerMoveTriggerEnter += OnPlayerMove;
         CoinEvents.current.onCoinDestroyedTriggerEnter += OnCoinDestroyed;
-        state = BuildState(0);
+        TriggerDetector.current.onTrigger += OnTriggerThing;
+        state = BuildState(0, softUpperBound);
         RenderState();
         updatingState = false;
     }
@@ -99,7 +105,6 @@ public class TerrainGenerator : MonoBehaviour
 
     void DestroyGameInRange(int start, int end)
     {
-
         for (int x = start; x < end; x++)
         {
             List<List<int>> xSliceData = state[x];
@@ -130,6 +135,11 @@ public class TerrainGenerator : MonoBehaviour
         }
     }
 
+    void OnTriggerThing(bool isLeftTrigger, int x, int y)
+    {
+        Debug.Log($"TRIGGER THING {isLeftTrigger}, {x}, {y}");
+    }
+
     void MaybeUpdateActiveSection(float playerX)
     {
         if (!updatingState)
@@ -142,29 +152,22 @@ public class TerrainGenerator : MonoBehaviour
                 if (getLeft)
                 {
                     // fetch left, garbage collect right, render terrain, update startX
-                    int destroyStartIndex = getStateXIndex(xStart) + Convert.ToInt32(shouldFetchLeftOffset);
-                    int destroyEndIndex = destroyStartIndex + Convert.ToInt32(shouldFetchRightOffset);
+                    int destroyStartIndex = getStateXIndex(xStart) + Convert.ToInt32(shouldFetchRightOffset);
+                    int destroyEndIndex = getStateXIndex(xStart)  + softUpperBound;
                     DestroyGameInRange(destroyStartIndex, destroyEndIndex);
                     xStart = Mathf.Max(xStart - softUpperBound, xAbsoluteStart);
                     RenderState();
                 } else if (getRight)
                 {
-                    // fetch right, garbage collect left
-                    // will have to generate terrain
-                    // will have to update startY to be last right y offset + absoluteY?
-                    // no, i think yStart will always be the same, it is just the buildstate level
-                    // that will have to be correct
-                    // will have to get from last created tile state
-
                     int destroyStartIndex = getStateXIndex(xStart);
-                    int destroyEndIndex = destroyStartIndex + Convert.ToInt32(shouldFetchRightOffset); // TODO this is too far, but will help with debugging
+                    int destroyEndIndex = destroyStartIndex + Convert.ToInt32(shouldFetchLeftOffset);
                     DestroyGameInRange(destroyStartIndex, destroyEndIndex);
 
                     List<List<int>> lastX = state[state.Count() - 1];
                     List<int> lastYSlice = lastX[lastX.Count() - 1];
                     int lastYOffset = lastYSlice[0];
-                    xStart += softUpperBound; // TODO global state is evil
-                    List<List<List<int>>> nextState = BuildState(lastYOffset);
+                    xStart += Convert.ToInt32(shouldFetchLeftOffset); // TODO global state is evil
+                    List<List<List<int>>> nextState = BuildState(lastYOffset, Convert.ToInt32(shouldFetchLeftOffset));
                     state.AddRange(nextState);
 
                     RenderState();
@@ -174,7 +177,8 @@ public class TerrainGenerator : MonoBehaviour
         }
     }
 
-    List<List<List<int>>> BuildState(int initialLevel)
+    // [ | | | ]
+    List<List<List<int>>> BuildState(int initialLevel, int length)
     {
         List<int> levelChoices = new List<int>{ -1, 0, 1 };
 
@@ -182,7 +186,7 @@ public class TerrainGenerator : MonoBehaviour
 
         List<List<List<int>>> nextState = new List<List<List<int>>>(softUpperBound);
 
-        for (int i = 0; i < softUpperBound; i++)
+        for (int i = 0; i < length; i++)
         {
             var choices = levelChoices.Where(l => level + l >= 0 && level + l <= maxHeight).ToList();
             int nextChoiceIndex = Convert.ToInt32(UnityEngine.Random.Range(0f, Convert.ToSingle(choices.Count() - 1)));
@@ -241,23 +245,42 @@ public class TerrainGenerator : MonoBehaviour
                 bool hasCoin = yDetails[2] == 1;
 
                 Vector3Int tilePos = new Vector3Int(xIndexToWorldX(xOffset), yStart + yOffset, 0);
-                TileBase tile = tileBaseTable[tileType];
-                if (tile != null)
+                if (!tileMap.HasTile(tilePos))
                 {
-                    tileMap.SetTile(tilePos, tile);
-                }
+                    TileBase tile = tileBaseTable[tileType];
+                    if (tile != null)
+                    {
+                        tileMap.SetTile(tilePos, tile);
+                        bool isRightDetector = xOffset == shouldFetchRightOffset;
+                        bool isLeftDetector = xOffset == shouldFetchLeftOffset;
+                        if (isLeftDetector || isRightDetector)
+                        {
+                            Vector3Int colliderPos = new Vector3Int(tilePos.x, tilePos.y + 1, tilePos.z);
+                            GameObject newLC = Instantiate(
+                                locationCollider,
+                                colliderPos,
+                                Quaternion.identity
+                            );
+                            TriggerDetector td = newLC.GetComponent<TriggerDetector>();
+                            td.x = tilePos.x;
+                            td.y = tilePos.y;
+                            td.isLeftTrigger = isLeftDetector;
+                            td.isRightTrigger = isRightDetector;
+                            td.onTrigger += OnTriggerThing;
+                        }
+                    }
 
-                if (hasCoin)
-                {
-                    Rigidbody2D newCoin = Instantiate(
-                        coin,
-                        new Vector3(xIndexToWorldX(xOffset), yOffset + yStart + 3, 0),
-                        Quaternion.identity
-                    );
-                    string coinKey = GetCoinKey(xOffset, yOffset);
-                    renderedCoins.Add(coinKey, newCoin);
+                    if (hasCoin)
+                    {
+                        Rigidbody2D newCoin = Instantiate(
+                            coin,
+                            new Vector3(xIndexToWorldX(xOffset), yOffset + yStart + 3, 0),
+                            Quaternion.identity
+                        );
+                        string coinKey = GetCoinKey(xOffset, yOffset);
+                        renderedCoins.Add(coinKey, newCoin);
+                    }
                 }
-
             }
         }
 
